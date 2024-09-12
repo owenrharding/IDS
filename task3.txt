@@ -1,1 +1,2 @@
 sudo iptables -N ICMP
+sudo iptables -A ICMP -p icmp --icmp-type echo-request -m limit --limit 2/second
