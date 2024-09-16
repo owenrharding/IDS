@@ -48,6 +48,7 @@ class Rule:
         openingBracketIndex = remainingOptions.find("(")
         firstSemiColonIndex = remainingOptions.find(";")
         # Will need to change this later to handle multiple options.
+        # MSG DOES NOT ALWAYS GO FIRST.
         self.msgStr = remainingOptions[openingBracketIndex+1:firstSemiColonIndex]
 
     def check_fields(self) -> None:
@@ -85,6 +86,32 @@ class Rule:
             return False
 
         return True
+    
+    def log_message(self) -> None:
+        """
+        Logs the message to the outfile IDS_log.txt.
+        """
+        with open('IDS_log.txt', 'w') as logFile:
+            currentTime = datetime.now()
+            # Format the current time.
+            formattedTime = currentTime.strftime("%Y-%m-%d %H:%M:%S")
+            # Write the formatted time and the message to the log file.
+            logFile.write(formattedTime, "Alert: ", self.msgStr)
+    
+    def get_protocol(self) -> str:
+        return self.protocol
+    
+    def get_sourceIP(self) -> str:
+        return self.sourceIP
+    
+    def get_sourcePort(self):
+        return self.sourcePort
+    
+    def get_destinationIP(self):
+        return self.destinationIP
+    
+    def get_destinationPort(self):
+        return self.destinationPort
 
 
 class RuleSet:
@@ -120,7 +147,6 @@ def main():
         print("Incorrect number of arguments.")
 
     # Parse and extract command line arguments.
-    execProgram = sys.argv[0]
     pcapFilePath = sys.argv[1]
     rulesFilePath = sys.argv[2]
     
@@ -131,8 +157,16 @@ def main():
         rule.extract_rule_fields()
         rule.check_fields()
 
-    # Read pcap file.
+    # Read pcap file. Uses scapy Packet class.
     packets = rdpcap(pcapFilePath)
+
+    for packet in packets:
+        # Finish this logic by comparing packet to rule in ruleset.
+        for rule in rules.get_rules():
+            # Task 1.
+            if rule.get_protocol() == "tcp" and packet.haslayer(TCP):
+                # Log message.
+                rule.log_message()
 
 
 if __name__ == '__main__':
