@@ -28,8 +28,6 @@ class Rule:
         Initializes a Rule object.
         """
         self.rule = ruleStr.split() # Split the ruleStr into a list of strings.
-        self.extract_rule_fields()
-        self.check_fields()
     
     def extract_rule_fields(self) -> None:
         """
@@ -39,7 +37,7 @@ class Rule:
         self.protocol = self.rule[1]
         self.sourceIP = self.rule[2]
         self.sourcePort = self.rule[3]
-        self.destinationIP = self.rule[5] # Skip the "->" symbol.
+        self.destinationIP = self.rule[5]
         self.destinationPort = self.rule[6]
 
         # Join the remainder of the rule (everything in parentheses) into a string.
@@ -99,16 +97,22 @@ class RuleSet:
         Initializes a RuleSet object.
         """
         self.rules = []
-        self.read_rules(rulesFilePath)
+        self.rulesFilePath = rulesFilePath
     
-    def read_rules(self, rulesFilePath: str):
+    def read_rules(self) -> None:
         """
         Reads rules from a file.
         """
-        with open(rulesFilePath, 'r') as rulesFile:
+        with open(self.rulesFilePath, 'r') as rulesFile:
             for line in rulesFile:
                 rule = Rule(line)
                 self.rules.append(rule)
+    
+    def get_rules(self) -> list:
+        """
+        Returns the rules.
+        """
+        return self.rules
 
 
 def main():
@@ -120,6 +124,13 @@ def main():
     execProgram = sys.argv[0]
     pcapFilePath = sys.argv[1]
     rulesFilePath = sys.argv[2]
+    
+    # Parse the IDS rules file.
+    rules = RuleSet(rulesFilePath)
+    rules.read_rules()
+    for rule in rules.get_rules():
+        rule.extract_rule_fields()
+        rule.check_fields()
 
     # Read pcap file.
     packets = rdpcap(pcapFilePath)
