@@ -18,6 +18,7 @@ import sys
 from scapy.all import *
 from datetime import datetime
 
+
 class Rule:
     """
     Models a single rule in an IDS rule file.
@@ -30,7 +31,7 @@ class Rule:
         self.extract_rule_fields()
         self.check_fields()
     
-    def extract_rule_fields(self):
+    def extract_rule_fields(self) -> None:
         """
         Extracts fields from the rule.
         """
@@ -40,9 +41,19 @@ class Rule:
         self.sourcePort = self.rule[3]
         self.destinationIP = self.rule[5] # Skip the "->" symbol.
         self.destinationPort = self.rule[6]
-        self.message = " ".join(self.rule[7:])
 
-    def check_fields(self):
+        # Join the remainder of the rule (everything in parentheses) into a string.
+        remainingOptions = " ".join(self.rule[7:])
+    
+        # From the rule "alert tcp any any -> any any (msg: "receive a tcp packet";)",
+        # the message should be "receive a tcp packet".
+        # Extract the message by searching for 'msg:' and getting the quoted message.
+        msg_start = remainingOptions.find('msg:')
+        quote_start =  remainingOptions.find('"', msg_start)
+        quote_end =  remainingOptions.find('"', quote_start + 1)
+        self.message =  remainingOptions[quote_start + 1:quote_end]
+
+    def check_fields(self) -> None:
         """
         Checks if the fields are valid.
         """
@@ -78,6 +89,28 @@ class Rule:
 
         return True
 
+
+class RuleSet:
+    """
+    Models a set of rules in an IDS rule file.
+    """
+    def __init__(self, rulesFilePath: str):
+        """
+        Initializes a RuleSet object.
+        """
+        self.rules = []
+        self.read_rules(rulesFilePath)
+    
+    def read_rules(self, rulesFilePath: str):
+        """
+        Reads rules from a file.
+        """
+        with open(rulesFilePath, 'r') as rulesFile:
+            for line in rulesFile:
+                rule = Rule(line)
+                self.rules.append(rule)
+
+
 def main():
     # Check if the number of arguments in command line is correct.
     if len(sys.argv) != 3:
@@ -90,13 +123,6 @@ def main():
 
     # Read pcap file.
     packets = rdpcap(pcapFilePath)
-
-
-def process_ids_rule(rule: str):
-    """
-    Takes a single rule and processes it.
-    """
-    
 
 
 if __name__ == '__main__':
