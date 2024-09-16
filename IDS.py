@@ -37,19 +37,18 @@ class Rule:
         self.protocol = self.rule[1]
         self.sourceIP = self.rule[2]
         self.sourcePort = self.rule[3]
-        self.destinationIP = self.rule[5]
+        self.destinationIP = self.rule[5] # Skip the "->" symbol.
         self.destinationPort = self.rule[6]
 
         # Join the remainder of the rule (everything in parentheses) into a string.
         remainingOptions = " ".join(self.rule[7:])
     
-        # From the rule "alert tcp any any -> any any (msg: "receive a tcp packet";)",
+        # From "alert tcp any any -> any any (msg: "receive a tcp packet";)",
         # the message should be "receive a tcp packet".
-        # Extract the message by searching for 'msg:' and getting the quoted message.
-        msg_start = remainingOptions.find('msg:')
-        quote_start =  remainingOptions.find('"', msg_start)
-        quote_end =  remainingOptions.find('"', quote_start + 1)
-        self.message =  remainingOptions[quote_start + 1:quote_end]
+        openingBracketIndex = remainingOptions.find("(")
+        firstSemiColonIndex = remainingOptions.find(";")
+        # Will need to change this later to handle multiple options.
+        self.msgStr = remainingOptions[openingBracketIndex+1:firstSemiColonIndex]
 
     def check_fields(self) -> None:
         """
