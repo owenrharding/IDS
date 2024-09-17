@@ -16,6 +16,7 @@ Both paths need to be absolute paths.
 
 import sys
 from scapy.all import *
+from scapy.all import IP, ICMP, TCP, UDP
 from datetime import datetime
 
 
@@ -82,7 +83,7 @@ class Rule:
         """
         # Check if the action is valid.
         if self.action != "alert":
-            print("Invalid action.")
+            print("Invalid/unimplemented action.")
             return False
         
         # Check if the protocol is valid.
@@ -95,8 +96,10 @@ class Rule:
             print("Invalid source IP.")
             return False
 
-        # Check if the source port is valid.
-        if not self.sourcePort:
+        # Check if the source port is an integer.
+        if self.sourcePort.isdigit():
+            self.sourcePort = int(self.sourcePort)
+        elif self.sourcePort != "any":
             print("Invalid source port.")
             return False
 
@@ -105,12 +108,12 @@ class Rule:
             print("Invalid destination IP.")
             return False
 
-        # Check if the destination port is valid.
-        if not self.destinationPort:
+        # Check if the destination port is an integer.
+        if self.destinationPort.isdigit():
+            self.destinationPort = int(self.destinationPort)
+        elif self.destinationPort != "any":
             print("Invalid destination port.")
             return False
-
-        return True
     
     def log_message(self) -> None:
         """
@@ -123,7 +126,38 @@ class Rule:
             # Write the formatted time and the message to the log file.
             logFile.write(formattedTime, "Alert: ", self.msgStr)
     
-    
+    def check_packet_pass(self, packet) -> None:
+        """
+        Checks if the packet passes the rule.
+        """
+        if IP in packet:
+            # Extract ip layer from packet.
+            ipLayer = packet[IP]
+
+            # Check if the packet's protocol matches the rule's protocol.
+            if TCP in packet and self.protocol == "tcp":
+                # Extract tcp layer from packet.
+                tcpLayer = packet[TCP]
+                # Check if ALL of the packet's properties match those specified
+                # in the rule.
+                if ((self.sourcePort == "any" or self.sourcePort == tcpLayer.sport) and
+                    (self.sourceIP == "any" or self.sourceIp == ipLayer.src) and
+                    (self.destinationPort == "any" or self.destinationPort == tcpLayer.dport) and 
+                    (self.destinationIP == "any" or self.destinationIP == ipLayer.dst)):
+
+                    self.log_message()
+            
+            elif UDP in packet and self.protocol == "udp":
+                # Extract udp layer from packet.
+                udpLayer = packet[UDP]
+                # Check if ALL of the packet's properties match those specified
+                # in the rule.
+                if ((self.sourcePort == "any" or self.sourcePort == udpLayer.sport) and
+                    (self.sourceIP == "any" or self.sourceIp == ipLayer.src) and
+                    (self.destinationPort == "any" or self.destinationPort == udpLayer.dport) and 
+                    (self.destinationIP == "any" or self.destinationIP == ipLayer.dst)):
+
+                    self.log_message()
 
 
 class RuleSet:
