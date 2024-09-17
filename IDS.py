@@ -31,7 +31,9 @@ class Rule:
         self.rule = ruleStr.split() # Split the ruleStr into a list of strings.
         self.extract_rule_fields()
         self.check_fields()
+        self.logFile = open("IDS_log.txt", 'w')
 
+    def print_rule(self) -> None:
         print("=== RULE ===")
         if self.action:
             print("Action:", self.action)
@@ -142,50 +144,31 @@ class Rule:
         """
         Logs the message to the outfile IDS_log.txt.
         """
-        with open('IDS_log.txt', 'w') as logFile:
-            currentTime = datetime.now()
-            # Format the current time.
-            formattedTime = currentTime.strftime("%Y-%m-%d %H:%M:%S")
-            # Write the formatted time and the message to the log file.
-            logFile.write(formattedTime, "Alert: ", self.msgStr)
+        currentTime = datetime.now()
+        # Format the current time.
+        formattedTime = currentTime.strftime("%Y-%m-%d %H:%M:%S")
+        # Write the formatted time and the message to the log file.
+        self.logFile.write(formattedTime + " - Alert: " + self.msg + "\n")
     
-    def check_packet_pass(self, packet) -> None:
+    def check_packet(self, packet) -> None:
         """
-        Checks if the packet passes the rule.
+        Checks if the given packet satisfies the properties of this rule.
+        If it does, log the message.
         """
-        if IP in packet:
-            # Extract ip layer from packet.
-            ipLayer = packet[IP]
-            # Check if the packet's source and destination IPs match the rule's.
-            if self.sourceIP != "any" and self.sourceIP != ipLayer.src:
-                return
-            if self.destinationIP != "any" and self.destinationIP != ipLayer.dst:
-                return
-
-            # Check if the packet's protocol matches the rule's protocol.
-            if TCP in packet and self.protocol == "tcp":
-                # Extract tcp layer from packet.
-                tcpLayer = packet[TCP]
-                # Check if the packet's source and destination ports match the rule's.
-                if self.sourcePort != "any" and self.sourcePort != tcpLayer.sport:
-                    return
-                if self.destinationPort != "any" and self.destinationPort != tcpLayer.dport:
-                    return
-            
-            elif UDP in packet and self.protocol == "udp":
-                # Extract udp layer from packet.
-                udpLayer = packet[UDP]
-                # Check if the packet's source and destination ports match the rule's.
-                if self.sourcePort != "any" and self.sourcePort != udpLayer.sport:
-                    return
-                if self.destinationPort != "any" and self.destinationPort != udpLayer.dport:
-                    return
-            
-            elif ICMP in packet and self.protocol != "icmp":
-                return
+        if self.protocol != packet.protocol:
+            return
+        if self.sourceIP != "any" and self.sourceIP != packet.sourceIP:
+            return
+        if self.sourcePort != "any" and self.sourcePort != packet.sourcePort:
+            return
+        if self.destinationIP != "any" and self.destinationIP != packet.destinationIP:
+            return
+        if self.destinationPort != "any" and self.destinationPort != packet.destinationPort:
+            return
         
+        # If it's made it to this point, the packet satisfies the rule.
         self.log_message()
-
+    
 
 class RuleSet:
     """
@@ -239,6 +222,19 @@ class Packet:
         self.sourcePort = self.extract_source_port()
         self.destinationIP = self.extract_destination_ip()
         self.destinationPort = self.extract_destination_port()
+
+    def print_packet(self) -> None:
+        print("=== PACKET ===")
+        if self.protocol:
+            print("Protocol:", self.protocol)
+        if self.sourceIP:
+            print("Source IP:", self.sourceIP)
+        if self.sourcePort:
+            print("Source Port:", self.sourcePort)
+        if self.destinationIP:
+            print("Destination IP:", self.destinationIP)
+        if self.destinationPort:
+            print("Destination Port:", self.destinationPort)
     
     def extract_protocol(self) -> str:
         """
@@ -331,12 +327,11 @@ def main():
     rules = RuleSet(rulesFilePath)
 
     # Read pcap file. Uses scapy Packet class.
-    #packets = rdpcap(pcapFilePath)
+    packets = PacketSet(pcapFilePath)
 
-    #for packet in packets:
-    #    # Finish this logic by comparing packet to rule in ruleset.
-    #    for rule in rules.get_rules():
-    #        rule.check_packet_pass(packet)
+    for packet in packets.get_packets():
+        for rule in rules.get_rules():
+            rule.check_packet(packet)
 
 
 if __name__ == '__main__':
