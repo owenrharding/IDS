@@ -15,7 +15,7 @@ Both paths need to be absolute paths.
 """
 
 import sys
-from scapy.all import *
+from scapy.all import rdpcap
 from scapy.all import IP, ICMP, TCP, UDP
 from datetime import datetime
 
@@ -29,6 +29,29 @@ class Rule:
         Initializes a Rule object.
         """
         self.rule = ruleStr.split() # Split the ruleStr into a list of strings.
+        self.extract_rule_fields()
+        self.check_fields()
+
+        print("=== RULE ===")
+        if self.action:
+            print("Action:", self.action)
+        if self.protocol:
+            print("Protocol:", self.protocol)
+        if self.sourceIP:
+            print("Source IP:", self.sourceIP)
+        if self.sourcePort:
+            print("Source Port:", self.sourcePort)
+        if self.destinationIP:
+            print("Destination IP:", self.destinationIP)
+        if self.destinationPort:
+            print("Destination Port:", self.destinationPort)
+        if self.msg:
+            print("Message:", self.msg)
+        if self.flag:
+            print("Flag:", self.flag)
+        if self.content:
+            print("Content:", self.content)
+    
     
     def extract_rule_fields(self) -> None:
         """
@@ -41,7 +64,7 @@ class Rule:
         self.destinationIP = self.rule[5] # Skip the "->" symbol.
         self.destinationPort = self.rule[6]
         self.additionalOptions = self.extract_additional_options(self.rule[7:])
-    
+
     def extract_additional_options(self, additionalOptions) -> None:
         # From "alert tcp any any -> any any (msg: "receive a tcp packet";)",
         # Example additional options:
@@ -49,11 +72,12 @@ class Rule:
         # the message should be "receive a tcp packet".
         self.msg = None
         self.flag = None
+        self.content = None
         self.detectionFilter = None
 
         optionsStr = " ".join(additionalOptions)
 
-        if "content" in additionalOptions:
+        if "content" in optionsStr:
             # Find first occurrence of '"' and ';' after "content".
             firstQuotationMarkAfterContentIndex = optionsStr.find('"', optionsStr.find("content"))
             firstSemicolonAfterContentIndex = optionsStr.find(';', firstQuotationMarkAfterContentIndex)
@@ -61,7 +85,7 @@ class Rule:
             # Subtract one from the index of the first semicolon to skip the quotation mark.
             self.content = optionsStr[(firstQuotationMarkAfterContentIndex + 1) : (firstSemicolonAfterContentIndex - 1)]
 
-        if "msg" in additionalOptions:
+        if "msg" in optionsStr:
             # Find first occurrence of '"' and ';' after "msg".
             firstQuotationMarkAfterMsgIndex = optionsStr.find('"', optionsStr.find("msg"))
             firstSemicolonAfterMsgIndex = optionsStr.find(';', firstQuotationMarkAfterMsgIndex)
@@ -69,7 +93,7 @@ class Rule:
             # Subtract one from the index of the first semicolon to skip the quotation mark.
             self.msg = optionsStr[(firstQuotationMarkAfterMsgIndex + 1) : (firstSemicolonAfterMsgIndex - 1)]
 
-        if "flags" in additionalOptions:
+        if "flags" in optionsStr:
             # Find first occurrence of ';' after "flags".
             firstSemicolonAfterFlagsIndex = optionsStr.find(';', optionsStr.find("flags"))
             # Should be the character before the semicolon.
@@ -174,6 +198,7 @@ class RuleSet:
         """
         self.rules = []
         self.rulesFilePath = rulesFilePath
+        self.read_rules()
     
     def read_rules(self) -> None:
         """
@@ -192,6 +217,53 @@ class RuleSet:
         """
         return self.rules
 
+class Packet:
+    """
+    Models a packet in a pcap file.
+    """
+    def __init__(self, packet):
+        """
+        Initializes a Packet object.
+        """
+        self.packet = packet
+        self.extract_packet_fields()
+    
+    def extract_packet_fields(self) -> None:
+        """
+        Extracts fields from the packet.
+        """
+        self.protocol = None
+        self.sourceIP = None
+        self.sourcePort = None
+        self.destinationIP = None
+        self.destinationPort = None
+
+class PacketSet:
+    """
+    Models a set of packets in a pcap file.
+    """
+    def __init__(self, pcapFilePath: str):
+        """
+        Initializes a PacketSet object.
+        """
+        self.packets = []
+        self.pcapFilePath = pcapFilePath
+        self.read_packets()
+    
+    def read_packets(self) -> None:
+        """
+        Reads packets from a pcap file.
+        """
+        packets = rdpcap(self.pcapFilePath)
+        for packet in packets:
+            packet = Packet(packet)
+            self.packets.append(packet)
+    
+    def get_packets(self) -> list:
+        """
+        Returns the packets.
+        """
+        return self.packets
 
 def main():
     # Check if the number of arguments in command line is correct.
@@ -201,21 +273,17 @@ def main():
     # Parse and extract command line arguments.
     pcapFilePath = sys.argv[1]
     rulesFilePath = sys.argv[2]
-    
+
     # Parse the IDS rules file.
     rules = RuleSet(rulesFilePath)
-    rules.read_rules()
-    for rule in rules.get_rules():
-        rule.extract_rule_fields()
-        rule.check_fields()
 
     # Read pcap file. Uses scapy Packet class.
-    packets = rdpcap(pcapFilePath)
+    #packets = rdpcap(pcapFilePath)
 
-    for packet in packets:
-        # Finish this logic by comparing packet to rule in ruleset.
-        for rule in rules.get_rules():
-            rule.check_packet_pass(packet)
+    #for packet in packets:
+    #    # Finish this logic by comparing packet to rule in ruleset.
+    #    for rule in rules.get_rules():
+    #        rule.check_packet_pass(packet)
 
 
 if __name__ == '__main__':
