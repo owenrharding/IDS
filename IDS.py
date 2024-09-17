@@ -15,8 +15,7 @@ Both paths need to be absolute paths.
 """
 
 import sys
-from scapy.all import rdpcap
-from scapy.all import IP, ICMP, TCP, UDP
+from scapy.all import rdpcap, IP, ICMP, TCP, UDP
 from datetime import datetime
 
 
@@ -24,16 +23,19 @@ class Rule:
     """
     Models a single rule in an IDS rule file.
     """
-    def __init__(self, ruleStr: str):
+    def __init__(self, ruleStr: str, logFile: str):
         """
         Initializes a Rule object.
         """
         self.rule = ruleStr.split() # Split the ruleStr into a list of strings.
         self.extract_rule_fields()
         self.check_fields()
-        self.logFile = open("IDS_log.txt", 'w')
+        self.logFile = logFile
 
     def print_rule(self) -> None:
+        """
+        Prints the rule. Used for debugging.
+        """
         print("=== RULE ===")
         if self.action:
             print("Action:", self.action)
@@ -106,6 +108,8 @@ class Rule:
         """
         Checks if the fields are valid.
         """
+        # Currently no check for IP addresses, these are just strings
+        # (as are the scapy IP adress fields).
         # Check if the action is valid.
         if self.action != "alert":
             print("Invalid/unimplemented action.")
@@ -116,11 +120,6 @@ class Rule:
             print("Invalid protocol.")
             return False
 
-        # Check if the source IP is valid.
-        if not self.sourceIP:
-            print("Invalid source IP.")
-            return False
-
         # Check if the source port is an integer.
         if self.sourcePort.isdigit():
             self.sourcePort = int(self.sourcePort)
@@ -128,16 +127,15 @@ class Rule:
             print("Invalid source port.")
             return False
 
-        # Check if the destination IP is valid.
-        if not self.destinationIP:
-            print("Invalid destination IP.")
-            return False
-
         # Check if the destination port is an integer.
         if self.destinationPort.isdigit():
             self.destinationPort = int(self.destinationPort)
         elif self.destinationPort != "any":
             print("Invalid destination port.")
+            return False
+
+        if self.flag not in [None, "S", "A", "F", "R", "+"]:
+            print("Invalid flag.")
             return False
     
     def log_message(self) -> None:
@@ -174,12 +172,13 @@ class RuleSet:
     """
     Models a set of rules in an IDS rule file.
     """
-    def __init__(self, rulesFilePath: str):
+    def __init__(self, rulesFilePath: str, logFile: str):
         """
         Initializes a RuleSet object.
         """
         self.rules = []
         self.rulesFilePath = rulesFilePath
+        self.logFile = logFile 
         self.read_rules()
     
     def read_rules(self) -> None:
@@ -190,7 +189,7 @@ class RuleSet:
             for line in rulesFile:
                 if line.startswith("#"):
                     continue
-                rule = Rule(line)
+                rule = Rule(line, self.logFile)
                 self.rules.append(rule)
     
     def get_rules(self) -> list:
@@ -198,6 +197,7 @@ class RuleSet:
         Returns the rules.
         """
         return self.rules
+
 
 class Packet:
     """
@@ -224,6 +224,9 @@ class Packet:
         self.destinationPort = self.extract_destination_port()
 
     def print_packet(self) -> None:
+        """
+        Prints the packet. Used for debugging.
+        """
         print("=== PACKET ===")
         if self.protocol:
             print("Protocol:", self.protocol)
@@ -256,7 +259,7 @@ class Packet:
         """
         Extracts the source IP of the packet.
         """
-        # REF: Source IP and source port extraction logic inspired by:
+        # REF: Source/dest IP and source/dest port extraction logic inspired by:
         # https://stackoverflow.com/questions/19311673/
         # fetch-source-address-and-port-number-of-packet-scapy-script
         if self.ipLayer is not None:
@@ -287,6 +290,7 @@ class Packet:
         elif self.udpLayer is not None:
             return self.udpLayer.dport
 
+
 class PacketSet:
     """
     Models a set of packets in a pcap file.
@@ -314,6 +318,7 @@ class PacketSet:
         """
         return self.packets
 
+
 def main():
     # Check if the number of arguments in command line is correct.
     if len(sys.argv) != 3:
@@ -323,8 +328,10 @@ def main():
     pcapFilePath = sys.argv[1]
     rulesFilePath = sys.argv[2]
 
+    logFile = open("IDS_log.txt", 'w')
+
     # Parse the IDS rules file.
-    rules = RuleSet(rulesFilePath)
+    rules = RuleSet(rulesFilePath, logFile)
 
     # Read pcap file. Uses scapy Packet class.
     packets = PacketSet(pcapFilePath)
