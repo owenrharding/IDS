@@ -133,31 +133,35 @@ class Rule:
         if IP in packet:
             # Extract ip layer from packet.
             ipLayer = packet[IP]
+            # Check if the packet's source and destination IPs match the rule's.
+            if self.sourceIP != "any" and self.sourceIP != ipLayer.src:
+                return
+            if self.destinationIP != "any" and self.destinationIP != ipLayer.dst:
+                return
 
             # Check if the packet's protocol matches the rule's protocol.
             if TCP in packet and self.protocol == "tcp":
                 # Extract tcp layer from packet.
                 tcpLayer = packet[TCP]
-                # Check if ALL of the packet's properties match those specified
-                # in the rule.
-                if ((self.sourcePort == "any" or self.sourcePort == tcpLayer.sport) and
-                    (self.sourceIP == "any" or self.sourceIp == ipLayer.src) and
-                    (self.destinationPort == "any" or self.destinationPort == tcpLayer.dport) and 
-                    (self.destinationIP == "any" or self.destinationIP == ipLayer.dst)):
-
-                    self.log_message()
+                # Check if the packet's source and destination ports match the rule's.
+                if self.sourcePort != "any" and self.sourcePort != tcpLayer.sport:
+                    return
+                if self.destinationPort != "any" and self.destinationPort != tcpLayer.dport:
+                    return
             
             elif UDP in packet and self.protocol == "udp":
                 # Extract udp layer from packet.
                 udpLayer = packet[UDP]
-                # Check if ALL of the packet's properties match those specified
-                # in the rule.
-                if ((self.sourcePort == "any" or self.sourcePort == udpLayer.sport) and
-                    (self.sourceIP == "any" or self.sourceIp == ipLayer.src) and
-                    (self.destinationPort == "any" or self.destinationPort == udpLayer.dport) and 
-                    (self.destinationIP == "any" or self.destinationIP == ipLayer.dst)):
-
-                    self.log_message()
+                # Check if the packet's source and destination ports match the rule's.
+                if self.sourcePort != "any" and self.sourcePort != udpLayer.sport:
+                    return
+                if self.destinationPort != "any" and self.destinationPort != udpLayer.dport:
+                    return
+            
+            elif ICMP in packet and self.protocol != "icmp":
+                return
+        
+        self.log_message()
 
 
 class RuleSet:
