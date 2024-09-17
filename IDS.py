@@ -39,17 +39,42 @@ class Rule:
         self.sourcePort = self.rule[3]
         self.destinationIP = self.rule[5] # Skip the "->" symbol.
         self.destinationPort = self.rule[6]
-
-        # Join the remainder of the rule (everything in parentheses) into a string.
-        remainingOptions = " ".join(self.rule[7:])
+        self.additionalOptions = self.extract_additional_options(self.rule[7:])
     
+    def extract_additional_options(self, additionalOptions) -> None:
         # From "alert tcp any any -> any any (msg: "receive a tcp packet";)",
+        # Example additional options:
+        # (msg: "TCP syn scan detected"; flags: S; detection_filter: count 10, seconds 2;)
         # the message should be "receive a tcp packet".
-        openingBracketIndex = remainingOptions.find("(")
-        firstSemiColonIndex = remainingOptions.find(";")
-        # Will need to change this later to handle multiple options.
-        # MSG DOES NOT ALWAYS GO FIRST.
-        self.msgStr = remainingOptions[openingBracketIndex+1:firstSemiColonIndex]
+        self.msg = None
+        self.flag = None
+        self.detectionFilter = None
+
+        optionsStr = " ".join(additionalOptions)
+
+        if "content" in additionalOptions:
+            # Find first occurrence of '"' and ';' after "content".
+            firstQuotationMarkAfterContentIndex = optionsStr.find('"', optionsStr.find("content"))
+            firstSemicolonAfterContentIndex = optionsStr.find(';', firstQuotationMarkAfterContentIndex)
+            # Add one to the index of the first quotation mark to skip it.
+            # Subtract one from the index of the first semicolon to skip the quotation mark.
+            self.content = optionsStr[(firstQuotationMarkAfterContentIndex + 1) : (firstSemicolonAfterContentIndex - 1)]
+
+        if "msg" in additionalOptions:
+            # Find first occurrence of '"' and ';' after "msg".
+            firstQuotationMarkAfterMsgIndex = optionsStr.find('"', optionsStr.find("msg"))
+            firstSemicolonAfterMsgIndex = optionsStr.find(';', firstQuotationMarkAfterMsgIndex)
+            # Add one to the index of the first quotation mark to skip it.
+            # Subtract one from the index of the first semicolon to skip the quotation mark.
+            self.msg = optionsStr[(firstQuotationMarkAfterMsgIndex + 1) : (firstSemicolonAfterMsgIndex - 1)]
+
+        if "flags" in additionalOptions:
+            # Find first occurrence of ';' after "flags".
+            firstSemicolonAfterFlagsIndex = optionsStr.find(';', optionsStr.find("flags"))
+            # Should be the character before the semicolon.
+            self.flag = optionsStr[firstSemicolonAfterFlagsIndex - 1]
+
+        ### IMPLEMENT DETECTION FILTER EXTRACTION ###
 
     def check_fields(self) -> None:
         """
@@ -61,7 +86,7 @@ class Rule:
             return False
         
         # Check if the protocol is valid.
-        if self.protocol not in ["tcp", "udp", "icmp"]:
+        if self.protocol not in ["ip", "icmp", "tcp", "udp"]:
             print("Invalid protocol.")
             return False
 
@@ -98,20 +123,7 @@ class Rule:
             # Write the formatted time and the message to the log file.
             logFile.write(formattedTime, "Alert: ", self.msgStr)
     
-    def get_protocol(self) -> str:
-        return self.protocol
     
-    def get_sourceIP(self) -> str:
-        return self.sourceIP
-    
-    def get_sourcePort(self):
-        return self.sourcePort
-    
-    def get_destinationIP(self):
-        return self.destinationIP
-    
-    def get_destinationPort(self):
-        return self.destinationPort
 
 
 class RuleSet:
@@ -131,6 +143,8 @@ class RuleSet:
         """
         with open(self.rulesFilePath, 'r') as rulesFile:
             for line in rulesFile:
+                if line.startswith("#"):
+                    continue
                 rule = Rule(line)
                 self.rules.append(rule)
     
@@ -163,10 +177,7 @@ def main():
     for packet in packets:
         # Finish this logic by comparing packet to rule in ruleset.
         for rule in rules.get_rules():
-            # Task 1.
-            if rule.get_protocol() == "tcp" and packet.haslayer(TCP):
-                # Log message.
-                rule.log_message()
+            rule.check_packet_pass(packet)
 
 
 if __name__ == '__main__':
