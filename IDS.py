@@ -52,7 +52,6 @@ class Rule:
         if self.content:
             print("Content:", self.content)
     
-    
     def extract_rule_fields(self) -> None:
         """
         Extracts fields from the rule.
@@ -232,11 +231,65 @@ class Packet:
         """
         Extracts fields from the packet.
         """
-        self.protocol = None
-        self.sourceIP = None
-        self.sourcePort = None
-        self.destinationIP = None
-        self.destinationPort = None
+        self.ipLayer = self.packet[IP] if IP in self.packet else None
+        self.tcpLayer = self.packet[TCP] if TCP in self.packet else None
+        self.udpLayer = self.packet[UDP] if UDP in self.packet else None
+        self.protocol = self.extract_protocol()
+        self.sourceIP = self.extract_source_ip()
+        self.sourcePort = self.extract_source_port()
+        self.destinationIP = self.extract_destination_ip()
+        self.destinationPort = self.extract_destination_port()
+    
+    def extract_protocol(self) -> str:
+        """
+        Extracts the protocol of the packet.
+        """
+        # REF: Protocol extraction logic inspired by:
+        # https://stackoverflow.com/questions/22093971/
+        # how-to-verify-if-a-packet-in-scapy-has-a-tcp-layer
+        if TCP in self.packet:
+            return "tcp"
+        elif UDP in self.packet:
+            return "udp"
+        elif ICMP in self.packet:
+            return "icmp"
+        else:
+            return "ip"
+
+    def extract_source_ip(self) -> str:
+        """
+        Extracts the source IP of the packet.
+        """
+        # REF: Source IP and source port extraction logic inspired by:
+        # https://stackoverflow.com/questions/19311673/
+        # fetch-source-address-and-port-number-of-packet-scapy-script
+        if self.ipLayer is not None:
+            return self.ipLayer.src
+
+    def extract_source_port(self) -> int:
+        """
+        Extracts the source port of the packet.
+        """
+        if self.tcpLayer is not None:
+            return self.tcpLayer.sport
+        elif self.udpLayer is not None:
+            return self.udpLayer.sport
+
+    def extract_destination_ip(self) -> str:
+        """
+        Extracts the destination IP of the packet.
+        """
+        if self.ipLayer is not None:
+            return self.ipLayer.dst
+
+    def extract_destination_port(self) -> int:
+        """
+        Extracts the destination port of the packet.
+        """
+        if self.tcpLayer is not None:
+            return self.tcpLayer.dport
+        elif self.udpLayer is not None:
+            return self.udpLayer.dport
 
 class PacketSet:
     """
