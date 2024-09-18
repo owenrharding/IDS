@@ -128,7 +128,6 @@ class Rule:
             
             if self.count is not None and self.seconds is not None:
                 self.detectionFilter = True
-            
     
     def set_flag(self, flag: str) -> str:
         """
