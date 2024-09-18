@@ -1,0 +1,6 @@
+# Ignore virtual environment.
+.venv/
+venv/
+
+# Ignore generated output file.
+IDS_log.txt
