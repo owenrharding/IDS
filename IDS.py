@@ -75,6 +75,7 @@ class Rule:
         # the message should be "receive a tcp packet".
         self.msg = None
         self.flag = None
+        self.flag_plus = False
         self.content = None
         self.detectionFilter = None
 
@@ -100,9 +101,30 @@ class Rule:
             # Find first occurrence of ';' after "flags".
             firstSemicolonAfterFlagsIndex = optionsStr.find(';', optionsStr.find("flags"))
             # Should be the character before the semicolon.
-            self.flag = optionsStr[firstSemicolonAfterFlagsIndex - 1]
+            self.flag = self.set_flag(optionsStr[optionsStr.find("flags") + 7 : firstSemicolonAfterFlagsIndex])
 
         ### IMPLEMENT DETECTION FILTER EXTRACTION ###
+    
+    def set_flag(self, flag: str) -> str:
+        """
+        Sets the flag based on a given string.
+        Character should be one of "S" (SYN), "A" (ACK), "F" (FIN), "R" (RST),
+        or "S+/A+/F+/R+" (extension meaning it's non-exclusive).
+        """
+        if "+" in flag:
+            self.flag_plus = True
+
+        if "S" in flag:
+            return "SYN"
+        elif "A" in flag:
+            return "ACK"
+        elif "F" in flag:
+            return "FIN"
+        elif "R" in flag:
+            return "RST"
+        else:
+            print("Invalid flag.")
+            return None
 
     def check_fields(self) -> None:
         """
@@ -134,7 +156,7 @@ class Rule:
             print("Invalid destination port.")
             return False
 
-        if self.flag not in [None, "S", "A", "F", "R", "+"]:
+        if self.flag not in [None, "SYN", "ACK", "FIN", "RST"]:
             print("Invalid flag.")
             return False
     
