@@ -77,7 +77,8 @@ class Rule:
         self.flag = None
         self.flag_plus = False
         self.content = None
-        self.detectionFilter = None
+        self.detectionFilter = False
+        self.count = None
 
         optionsStr = " ".join(additionalOptions)
 
@@ -103,7 +104,31 @@ class Rule:
             # Should be the character before the semicolon.
             self.flag = self.set_flag(optionsStr[optionsStr.find("flags") + 7 : firstSemicolonAfterFlagsIndex])
 
-        ### IMPLEMENT DETECTION FILTER EXTRACTION ###
+        if "detection_filter" in optionsStr:
+            # Find first occurrence of ';' after "detection_filter".
+            firstSemicolonAfterDetectionFilterIndex = optionsStr.find(';', optionsStr.find("detection_filter"))
+
+            if "count" in optionsStr[optionsStr.find("detection_filter"):firstSemicolonAfterDetectionFilterIndex]:
+                # Find first occurrence of ',' after "count".
+                firstCommaAfterCountIndex = optionsStr.find(',', optionsStr.find("count"))
+                count = optionsStr[optionsStr.find("count") + 6 : firstCommaAfterCountIndex]
+                if count.isdigit():
+                    self.count = int(count)
+                else:
+                    print("Invalid count.")
+
+            if "seconds" in optionsStr[optionsStr.find("detection_filter"):firstSemicolonAfterDetectionFilterIndex]:
+                # Find first occurrence of ';' after "seconds".
+                firstSemicolonAfterSecondsIndex = optionsStr.find(';', optionsStr.find("seconds"))
+                seconds = optionsStr[optionsStr.find("seconds") + 8 : firstSemicolonAfterSecondsIndex]
+                if seconds.isdigit():
+                    self.seconds = int(seconds)
+                else:
+                    print("Invalid seconds.")
+            
+            if self.count is not None and self.seconds is not None:
+                self.detectionFilter = True
+            
     
     def set_flag(self, flag: str) -> str:
         """
