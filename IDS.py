@@ -109,19 +109,19 @@ class Rule:
         """
         Sets the flag based on a given string.
         Character should be one of "S" (SYN), "A" (ACK), "F" (FIN), "R" (RST),
-        or "S+/A+/F+/R+" (extension meaning it's non-exclusive).
+        or "S+"/"A+"/"F+"/"R+" (extension meaning it's non-exclusive).
         """
         if "+" in flag:
             self.flag_plus = True
 
         if "S" in flag:
-            return "SYN"
+            return "S"
         elif "A" in flag:
-            return "ACK"
+            return "A"
         elif "F" in flag:
-            return "FIN"
+            return "F"
         elif "R" in flag:
-            return "RST"
+            return "R"
         else:
             print("Invalid flag.")
             return None
@@ -156,7 +156,7 @@ class Rule:
             print("Invalid destination port.")
             return False
 
-        if self.flag not in [None, "SYN", "ACK", "FIN", "RST"]:
+        if self.flag not in [None, "S", "A", "F", "R"]:
             print("Invalid flag.")
             return False
     
@@ -199,6 +199,8 @@ class Rule:
         if self.destinationPort != "any" and self.destinationPort != packet.destinationPort:
             return
         if self.content is not None and not self.content_in_packet(packet):
+            return
+        if self.flag is not None and self.flag not in packet.flags:
             return
         
         # If it's made it to this point, the packet satisfies the rule.
@@ -254,6 +256,7 @@ class Packet:
         self.ipLayer = self.packet[IP] if IP in self.packet else None
         self.tcpLayer = self.packet[TCP] if TCP in self.packet else None
         self.udpLayer = self.packet[UDP] if UDP in self.packet else None
+        self.flags = self.tcpLayer.flags if self.tcpLayer is not None else None
         self.protocol = self.extract_protocol()
         self.sourceIP = self.extract_source_ip()
         self.sourcePort = self.extract_source_port()
