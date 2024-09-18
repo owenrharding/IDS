@@ -280,12 +280,18 @@ class Packet:
         self.ipLayer = self.packet[IP] if IP in self.packet else None
         self.tcpLayer = self.packet[TCP] if TCP in self.packet else None
         self.udpLayer = self.packet[UDP] if UDP in self.packet else None
+        # REF: Getting flags from a packet inspired by:
+        # https://stackoverflow.com/questions/20429674/get-tcp-flags-with-scapy
         self.flags = self.tcpLayer.flags if self.tcpLayer is not None else None
         self.protocol = self.extract_protocol()
         self.sourceIP = self.extract_source_ip()
         self.sourcePort = self.extract_source_port()
         self.destinationIP = self.extract_destination_ip()
         self.destinationPort = self.extract_destination_port()
+        # REF: Getting the timestamp of a packet inspired by:
+        # https://stackoverflow.com/questions/11615892/
+        # scapy-get-packets-arrivals-time
+        self.timestamp = self.packet.time
 
     def print_packet(self) -> None:
         """
