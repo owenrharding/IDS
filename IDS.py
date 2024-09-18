@@ -15,7 +15,7 @@ Both paths need to be absolute paths.
 """
 
 import sys
-from scapy.all import rdpcap, IP, ICMP, TCP, UDP
+from scapy.all import rdpcap, IP, ICMP, TCP, UDP, Raw
 from datetime import datetime
 
 
@@ -148,12 +148,25 @@ class Rule:
         # Write the formatted time and the message to the log file.
         self.logFile.write(formattedTime + " - Alert: " + self.msg + "\n")
     
+    def content_in_packet(self, packet) -> bool:
+        """
+        Checks if the content is in the packet.
+        """
+        # Get packet string contents.
+        # REF: Getting packet contents as a string inspired by:
+        # https://stackoverflow.com/questions/29288848/
+        # get-info-string-from-scapy-packet#comment95603401_45162911
+        packetContents = packet.get_scapy_packet().show(dump=True)
+        if self.content in packetContents:
+            return True
+        return False
+    
     def check_packet(self, packet) -> None:
         """
         Checks if the given packet satisfies the properties of this rule.
         If it does, log the message.
         """
-        if self.protocol != packet.protocol:
+        if self.protocol != packet.protocol and self.protocol != "ip":
             return
         if self.sourceIP != "any" and self.sourceIP != packet.sourceIP:
             return
@@ -162,6 +175,8 @@ class Rule:
         if self.destinationIP != "any" and self.destinationIP != packet.destinationIP:
             return
         if self.destinationPort != "any" and self.destinationPort != packet.destinationPort:
+            return
+        if self.content is not None and not self.content_in_packet(packet):
             return
         
         # If it's made it to this point, the packet satisfies the rule.
@@ -239,6 +254,12 @@ class Packet:
         if self.destinationPort:
             print("Destination Port:", self.destinationPort)
     
+    def get_scapy_packet(self):
+        """
+        Returns the scapy packet.
+        """
+        return self.packet
+    
     def extract_protocol(self) -> str:
         """
         Extracts the protocol of the packet.
@@ -252,8 +273,6 @@ class Packet:
             return "udp"
         elif ICMP in self.packet:
             return "icmp"
-        else:
-            return "ip"
 
     def extract_source_ip(self) -> str:
         """
