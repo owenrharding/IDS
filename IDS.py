@@ -67,6 +67,7 @@ class Rule:
         self.destinationIP = self.rule[5] # Skip the "->" symbol.
         self.destinationPort = self.rule[6]
         self.additionalOptions = self.extract_additional_options(self.rule[7:])
+        self.packetsProcessed = 0
 
     def extract_additional_options(self, additionalOptions) -> None:
         # From "alert tcp any any -> any any (msg: "receive a tcp packet";)",
@@ -79,6 +80,8 @@ class Rule:
         self.content = None
         self.detectionFilter = False
         self.count = None
+        self.seconds = None
+        self.timestampLog = []
 
         optionsStr = " ".join(additionalOptions)
 
@@ -207,6 +210,35 @@ class Rule:
             return True
         return False
     
+    def detection_filter_alert(self) -> None:
+        """
+        Checks if the timestamps satisfy the detection filter.
+        """
+        # Sort timestamps. This way, if the the difference between the first
+        # and fifth timestamp is less than or equal to the time window given in
+        # the detection filter, then all five timestamps are sent within that
+        # time window. This can be generalised to any number of timestamps
+        # specified in the detection filter.
+        self.timestampLog.sort()
+        self.packetsProcessed += 1
+        print("========== TIMESTAMP LOG ==========")
+        print("Number of timestamps:", len(self.timestampLog))
+        print("Packet number:", self.packetsProcessed)
+        print("Detection filter count:", self.count)
+        print("Detection filter seconds:", self.seconds)
+        print(self.timestampLog)
+        if len(self.timestampLog) >= self.count:
+            for i in range(len(self.timestampLog) - self.count + 1):
+                diff = self.timestampLog[i + self.count - 1] - self.timestampLog[i]
+                print("Difference between", i, "(", self.timestampLog[i], ") and", i + self.count - 1, "(", self.timestampLog[i + self.count - 1], ") is", diff)
+                if diff <= self.seconds:
+                    print("*** FLOODING DETECTED!!! Removing timestamps from", i, "to", i + self.count - 1)
+                    # Remove timestamps from i to i + count - 1.
+                    self.timestampLog = self.timestampLog[0 : i] + self.timestampLog[i + self.count:]
+                    print("New timestamp log:", self.timestampLog)
+                    return True
+        return False
+    
     def check_packet(self, packet) -> None:
         """
         Checks if the given packet satisfies the properties of this rule.
@@ -226,6 +258,10 @@ class Rule:
             return
         if self.flag is not None and self.flag not in packet.flags:
             return
+        if self.detectionFilter:
+            self.timestampLog.append(packet.timestamp)
+            if not self.detection_filter_alert():
+                return
         
         # If it's made it to this point, the packet satisfies the rule.
         self.log_message()
