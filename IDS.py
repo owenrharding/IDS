@@ -77,7 +77,7 @@ class Rule:
         # the message should be "receive a tcp packet".
         self.msg = None
         self.flag = None
-        self.flag_plus = False
+        self.flagPlus = False
         self.content = None
         self.detectionFilter = False
         self.count = None
@@ -154,7 +154,7 @@ class Rule:
         or "S+"/"A+"/"F+"/"R+" (extension meaning it's non-exclusive).
         """
         if "+" in flag:
-            self.flag_plus = True
+            self.flagPlus = True
 
         if "S" in flag:
             return "S"
@@ -246,6 +246,15 @@ class Rule:
             return
         if self.flag is not None and self.flag not in packet.flags:
             return
+        if self.flag is not None:
+            # If flag is non-exclusive, check if it's in the flags.
+            if self.flagPlus:
+                if self.flag not in packet.flags:
+                    return
+            # If flag is exclusive, check if it's the only flag.
+            else:
+                if self.flag != packet.flags:
+                    return
         if self.detectionFilter:
             self.timestampLog.append(packet.timestamp)
             # Detection filtering is processed after all packets have been
