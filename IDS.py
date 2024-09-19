@@ -72,7 +72,8 @@ class Rule:
     def extract_additional_options(self, additionalOptions) -> None:
         # From "alert tcp any any -> any any (msg: "receive a tcp packet";)",
         # Example additional options:
-        # (msg: "TCP syn scan detected"; flags: S; detection_filter: count 10, seconds 2;)
+        # (msg: "TCP syn scan detected"; flags: S; 
+        # detection_filter: count 10, seconds 2;)
         # the message should be "receive a tcp packet".
         self.msg = None
         self.flag = None
@@ -87,50 +88,64 @@ class Rule:
 
         if "content" in optionsStr:
             # Find first occurrence of '"' and ';' after "content".
-            firstQuotationMarkAfterContentIndex = optionsStr.find('"', optionsStr.find("content"))
-            firstSemicolonAfterContentIndex = optionsStr.find(';', firstQuotationMarkAfterContentIndex)
+            contentStart = optionsStr.find('"', optionsStr.find("content"))
+            contentEnd = optionsStr.find(';', contentStart)
             # Add one to the index of the first quotation mark to skip it.
-            # Subtract one from the index of the first semicolon to skip the quotation mark.
-            self.content = optionsStr[(firstQuotationMarkAfterContentIndex + 1) : (firstSemicolonAfterContentIndex - 1)]
+            # Subtract one from the index of the first semicolon to skip the
+            # quotation mark.
+            self.content = optionsStr[(contentStart + 1) : (contentEnd - 1)]
 
         if "msg" in optionsStr:
             # Find first occurrence of '"' and ';' after "msg".
-            firstQuotationMarkAfterMsgIndex = optionsStr.find('"', optionsStr.find("msg"))
-            firstSemicolonAfterMsgIndex = optionsStr.find(';', firstQuotationMarkAfterMsgIndex)
+            msgStart = optionsStr.find('"', optionsStr.find("msg"))
+            msgEnd = optionsStr.find(';', msgStart)
             # Add one to the index of the first quotation mark to skip it.
-            # Subtract one from the index of the first semicolon to skip the quotation mark.
-            self.msg = optionsStr[(firstQuotationMarkAfterMsgIndex + 1) : (firstSemicolonAfterMsgIndex - 1)]
+            # Subtract one from the index of the first semicolon to skip the
+            # quotation mark.
+            self.msg = optionsStr[(msgStart + 1) : (msgEnd - 1)]
 
         if "flags" in optionsStr:
             # Find first occurrence of ';' after "flags".
-            firstSemicolonAfterFlagsIndex = optionsStr.find(';', optionsStr.find("flags"))
+            flagsEnd = optionsStr.find(';', optionsStr.find("flags"))
             # Should be the character before the semicolon.
-            self.flag = self.set_flag(optionsStr[optionsStr.find("flags") + 7 : firstSemicolonAfterFlagsIndex])
+            self.flag = self.set_flag(
+                optionsStr[optionsStr.find("flags") + 7 : flagsEnd]
+            )
 
         if "detection_filter" in optionsStr:
             # Find first occurrence of ';' after "detection_filter".
-            firstSemicolonAfterDetectionFilterIndex = optionsStr.find(';', optionsStr.find("detection_filter"))
+            filterEnd = optionsStr.find(
+                ';', optionsStr.find("detection_filter")
+            )
 
-            if "count" in optionsStr[optionsStr.find("detection_filter"):firstSemicolonAfterDetectionFilterIndex]:
+            if "count" in optionsStr[
+                optionsStr.find("detection_filter"):filterEnd
+            ]:
                 # Find first occurrence of ',' after "count".
-                firstCommaAfterCountIndex = optionsStr.find(',', optionsStr.find("count"))
-                count = optionsStr[optionsStr.find("count") + 6 : firstCommaAfterCountIndex]
+                countEnd = optionsStr.find(',', optionsStr.find("count"))
+                count = optionsStr[optionsStr.find("count") + 6 : countEnd]
                 if count.isdigit():
-                    self.count = int(count) + 1 # Pass things greater than, not equal to.
+                    # Pass things greater than, not equal to.
+                    self.count = int(count) + 1
                 else:
                     print("Invalid count.")
 
-            if "seconds" in optionsStr[optionsStr.find("detection_filter"):firstSemicolonAfterDetectionFilterIndex]:
+            if "seconds" in optionsStr[
+                optionsStr.find("detection_filter"):filterEnd
+            ]:
                 # Find first occurrence of ';' after "seconds".
-                firstSemicolonAfterSecondsIndex = optionsStr.find(';', optionsStr.find("seconds"))
-                seconds = optionsStr[optionsStr.find("seconds") + 8 : firstSemicolonAfterSecondsIndex]
+                secondsEnd = optionsStr.find(';', optionsStr.find("seconds"))
+                seconds = optionsStr[
+                    optionsStr.find("seconds") + 8 : secondsEnd
+                    ]
                 if seconds.isdigit():
                     self.seconds = int(seconds)
                 else:
                     print("Invalid seconds.")
-            
+
             if self.count is not None and self.seconds is not None:
                 self.detectionFilter = True
+ 
     
     def set_flag(self, flag: str) -> str:
         """
@@ -221,9 +236,11 @@ class Rule:
             return
         if self.sourcePort != "any" and self.sourcePort != packet.sourcePort:
             return
-        if self.destinationIP != "any" and self.destinationIP != packet.destinationIP:
+        if (self.destinationIP != "any" and 
+            self.destinationIP != packet.destinationIP):
             return
-        if self.destinationPort != "any" and self.destinationPort != packet.destinationPort:
+        if (self.destinationPort != "any" 
+            and self.destinationPort != packet.destinationPort):
             return
         if self.content is not None and not self.content_in_packet(packet):
             return
@@ -422,15 +439,24 @@ def main():
         for rule in rules.get_rules():
             rule.check_packet(packet)
     
+    # Process detection filtering once all packets have been processed.
     for rule in rules.get_rules():
         if rule.detectionFilter:
             if len(rule.timestampLog) >= rule.count:
+                # Sort timestamps. Once sorted, if the difference between the
+                # first and fifth timestamp is less than or equal to the
+                # specified number of seconds, then all timestamps in between
+                # are within that range. This can be applied to any count.
                 rule.timestampLog.sort()
                 for i in range(len(rule.timestampLog) - rule.count + 1):
-                    diff = rule.timestampLog[i + rule.count - 1] - rule.timestampLog[i]
+                    # Check every window of magnitude rule.count, checking if
+                    # the difference between the first and last one is less
+                    # than the minimum number of seconds.
+                    diff = (
+                        rule.timestampLog[i + rule.count - 1] 
+                        - rule.timestampLog[i]
+                    )
                     if diff <= rule.seconds:
-                        print("======== FLOODING DETECTED ========")
-                        print("The packets", rule.timestampLog[i:i + rule.count], "were sent within", diff, "seconds of each other, which is less than", rule.seconds, "seconds.")
                         rule.log_message()
 
 
