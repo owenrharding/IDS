@@ -1,4 +1,4 @@
-# cybr3000-a1
+# Python Intrusion Detection System
 This Python-based Intrusion Detection System (IDS) is designed to monitor network traffic and detect suspicious activity by comparing network packets to a set of predefined intrusion detection rules.
 It uses the Scapy library to analyse PCAP files to log alerts when packets whose properties align to the given rule(s) are detected.
 
